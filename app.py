@@ -981,16 +981,18 @@ with st.sidebar:
                     pass
                     #st.caption(f"Service Account: {info['service_account_email']}")
             except Exception as exc:
-                st.error(f"Falha na leitura do Google Calendar: {exc}")
+                #st.error(f"Falha na leitura do Google Calendar: {exc}")
+                st.error(f"Falha na leitura do Banco: {exc}")
 
-     #   if st.button("2. Testar gravação no Google", use_container_width=True):
-     #       try:
-     #           info = google_service().test_write_access()
-     #           st.success("Gravação OK. Evento temporário criado e removido com sucesso.")
-     #           if info.get("service_account_email"):
-     #               st.caption(f"Service Account: {info['service_account_email']}")
-     #       except Exception as exc:
-    #            st.error(f"Falha na gravação do Google Calendar: {exc}")
+        if st.button("2. Testar gravação no Banco", use_container_width=True):
+            try:
+                info = google_service().test_write_access()
+                st.success("Gravação OK. Evento temporário criado e removido com sucesso.")
+                if info.get("service_account_email"):
+                    pass
+                    #st.caption(f"Service Account: {info['service_account_email']}")
+           except Exception as exc:
+                st.error(f"Falha na gravação do Google Calendar: {exc}")
     #else:
     #    use_google = False
     #    st.warning("Google Calendar ainda não está configurado")
