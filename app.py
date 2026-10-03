@@ -991,7 +991,7 @@ with st.sidebar:
                 if info.get("service_account_email"):
                     pass
                     #st.caption(f"Service Account: {info['service_account_email']}")
-           except Exception as exc:
+            except Exception as exc:
                 st.error(f"Falha na gravação do Banco: {exc}")
     else:
         use_google = False
