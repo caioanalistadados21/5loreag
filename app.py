@@ -9,7 +9,7 @@ from textwrap import dedent
 
 import streamlit as st
 import streamlit.components.v1 as components
-
+import extra_streamlit_components as stx
 import database as db
 from config import APP_NAME, COLORS, DAY_END, DAY_START, TIMEZONE
 from google_calendar import (
