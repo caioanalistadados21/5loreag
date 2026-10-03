@@ -226,7 +226,7 @@ def login_required() -> None:
         )
 
         remember = st.checkbox(
-            "Lembrar de mim por 30 dias",
+            "Lembrar-me",
             value=True,
         )
 
