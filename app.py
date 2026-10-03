@@ -863,12 +863,12 @@ weekly_count, monthly_count = get_google_counters(selected)
 col_week, col_month = st.columns(2)
 
 with st.expander("Total Agendamentos", expanded=False):
-      st.metric(
+    st.metric(
             label="Agendamentos da semana",
             value=weekly_count,
         )
     
-        st.metric(
+    st.metric(
             label="Agendamentos do mês",
             value=monthly_count,
         )
