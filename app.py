@@ -1,45 +1,41 @@
 from __future__ import annotations
 
-import hmac
 import hashlib
+import hmac
 import time as time_module
-from pathlib import Path
 
 from datetime import date, datetime, time, timedelta
 from html import escape
 from textwrap import dedent
 
-
 import streamlit as st
 import streamlit.components.v1 as components
 import extra_streamlit_components as stx
+
 import database as db
+
 from config import (
     APP_NAME,
     COLORS,
     DAY_END,
     DAY_START,
     TIMEZONE,
-    )
-from google_calendar import (
-    GoogleCalendarService,
-    is_google_configured,
-    )
+)
+
+from google_calendar import GoogleCalendarService, is_google_configured
 
 try:
     from google_calendar import get_google_diagnostics
 except ImportError:
     def get_google_diagnostics():
-        return [
-            "Verifique a configuração do Google Calendar no secrets."
-        ]
+        return ["Verifique a configuração do Google Calendar no secrets."]
 
 from scheduling import (
     find_overlap,
     generate_timeline_marks,
     list_available_start_times,
     slot_from_start,
-    )
+)
 st.set_page_config(
     page_title=APP_NAME,
     page_icon="📅",
