@@ -992,12 +992,12 @@ with st.sidebar:
                     pass
                     #st.caption(f"Service Account: {info['service_account_email']}")
            except Exception as exc:
-                st.error(f"Falha na gravação do Google Calendar: {exc}")
-    #else:
-    #    use_google = False
-    #    st.warning("Google Calendar ainda não está configurado")
-    #    for diagnostic in get_google_diagnostics():
-    #        st.caption(f"• {diagnostic}")
+                st.error(f"Falha na gravação do Banco: {exc}")
+    else:
+        use_google = False
+        st.warning("Banco ainda não está configurado")
+        for diagnostic in get_google_diagnostics():
+            st.caption(f"• {diagnostic}")
     #    st.caption("Veja o README e .streamlit/secrets.example.toml.")
     st.caption("Fuso horário: America/Sao_Paulo")
 
