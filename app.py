@@ -15,7 +15,7 @@ import streamlit.components.v1 as components
 import extra_streamlit_components as stx
 import database as db
 from config import APP_NAME, COLORS, DAY_END, DAY_START, TIMEZONE
-from google_calendar import (GoogleCalendarService,get_google_diagnostics,is_google_configured)
+from google_calendar import GoogleCalendarService,get_google_diagnostics,is_google_configured
 from scheduling import (find_overlap,generate_timeline_marks,list_available_start_times,slot_from_start,)
 
 st.set_page_config(
