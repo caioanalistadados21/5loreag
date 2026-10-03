@@ -357,67 +357,66 @@ class GoogleCalendarService:
         }
 
     def list_events(self, start: datetime, end: datetime) -> list[dict]:
-       response = (
-        self.service.events()
-        .list(
-            calendarId=self.calendar_id,
-            timeMin=start.isoformat(),
-            timeMax=end.isoformat(),
-            singleEvents=True,
-            orderBy="startTime",
-            timeZone=TIMEZONE_NAME,
-        )
-        .execute(num_retries=5)
-    )
-
-    parsed = []
-
-    for event in response.get("items", []):
-        start_data = event.get("start", {})
-        end_data = event.get("end", {})
-
-        if "dateTime" in start_data:
-            ev_start = datetime.fromisoformat(
-                start_data["dateTime"].replace("Z", "+00:00")
-            ).astimezone(TIMEZONE)
-
-            ev_end = datetime.fromisoformat(
-                end_data["dateTime"].replace("Z", "+00:00")
-            ).astimezone(TIMEZONE)
-
-        else:
-            start_date = date.fromisoformat(
-                start_data["date"]
-            )
-
-            end_date = date.fromisoformat(
-                end_data["date"]
-            )
-
-            ev_start = datetime.combine(
-                start_date,
-                time.min,
-                tzinfo=TIMEZONE,
-            )
-
-            ev_end = datetime.combine(
-                end_date,
-                time.min,
-                tzinfo=TIMEZONE,
-            )
-
-        parsed.append(
-            {
-                "id": event.get("id"),
-                "title": event.get("summary") or "Ocupado",
-                "start": ev_start,
-                "end": ev_end,
-                "source": "google",
-                "html_link": event.get("htmlLink"),
-            }
+        response = (
+            self.service.events()
+            .list(
+                calendarId=self.calendar_id,
+                timeMin=start.isoformat(),
+                timeMax=end.isoformat(),
+                singleEvents=True,
+                orderBy="startTime",
+                timeZone=TIMEZONE_NAME,
+            ).execute(num_retries=5)
         )
 
-    return parsed
+        parsed = []
+
+        for event in response.get("items", []):
+            start_data = event.get("start", {})
+            end_data = event.get("end", {})
+
+            if "dateTime" in start_data:
+                ev_start = datetime.fromisoformat(
+                    start_data["dateTime"].replace("Z", "+00:00")
+                ).astimezone(TIMEZONE)
+
+                ev_end = datetime.fromisoformat(
+                    end_data["dateTime"].replace("Z", "+00:00")
+                ).astimezone(TIMEZONE)
+
+            else:
+                start_date = date.fromisoformat(
+                    start_data["date"]
+                )
+
+                end_date = date.fromisoformat(
+                    end_data["date"]
+                )
+
+                ev_start = datetime.combine(
+                    start_date,
+                    time.min,
+                    tzinfo=TIMEZONE,
+                )
+
+                ev_end = datetime.combine(
+                    end_date,
+                    time.min,
+                    tzinfo=TIMEZONE,
+                )
+
+            parsed.append(
+                {
+                    "id": event.get("id"),
+                    "title": event.get("summary") or "Ocupado",
+                    "start": ev_start,
+                    "end": ev_end,
+                    "source": "google",
+                    "html_link": event.get("htmlLink"),
+                }
+            )
+
+        return parsed
 
     def create_event(
         self,
@@ -439,7 +438,7 @@ class GoogleCalendarService:
             "start": {"dateTime": start.isoformat(), "timeZone": TIMEZONE_NAME},
             "end": {"dateTime": end.isoformat(), "timeZone": TIMEZONE_NAME},
         }
-       return (
+        return (
             self.service.events().insert(calendarId=self.calendar_id,body=body,).execute(num_retries=5)
         )
 
