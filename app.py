@@ -229,6 +229,79 @@ def day_bounds(day: date) -> tuple[datetime, datetime]:
     start = datetime.combine(day, time.min, tzinfo=TIMEZONE)
     return start, start + timedelta(days=1)
 
+def week_bounds(day: date) -> tuple[datetime, datetime]:
+    monday = day - timedelta(days=day.weekday())
+
+    start = datetime.combine(
+        monday,
+        time.min,
+        tzinfo=TIMEZONE,
+    )
+
+    end = start + timedelta(days=7)
+
+    return start, end
+
+
+def month_bounds(day: date) -> tuple[datetime, datetime]:
+    first_day = day.replace(day=1)
+
+    if first_day.month == 12:
+        next_month = date(
+            first_day.year + 1,
+            1,
+            1,
+        )
+    else:
+        next_month = date(
+            first_day.year,
+            first_day.month + 1,
+            1,
+        )
+
+    start = datetime.combine(
+        first_day,
+        time.min,
+        tzinfo=TIMEZONE,
+    )
+
+    end = datetime.combine(
+        next_month,
+        time.min,
+        tzinfo=TIMEZONE,
+    )
+
+    return start, end
+
+def get_google_counters(day: date) -> tuple[int, int]:
+    if not is_google_configured():
+        return 0, 0
+
+    try:
+        week_start, week_end = week_bounds(day)
+        month_start, month_end = month_bounds(day)
+
+        weekly_events = google_service().list_events(
+            week_start,
+            week_end,
+        )
+
+        monthly_events = google_service().list_events(
+            month_start,
+            month_end,
+        )
+
+        return (
+            len(weekly_events),
+            len(monthly_events),
+        )
+
+    except Exception as exc:
+        st.warning(
+            f"Não foi possível calcular os contadores: {exc}"
+        )
+        return 0, 0
+
 
 @st.cache_resource(show_spinner=False)
 def google_service() -> GoogleCalendarService:
@@ -631,6 +704,26 @@ with st.expander("Ir diretamente para uma data", expanded=True):
 
 selected = st.session_state.selected_date
 st.markdown('<div id="appointments-list"></div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# CONTADORES GOOGLE CALENDAR
+# ---------------------------------------------------------
+
+weekly_count, monthly_count = get_google_counters(selected)
+
+col_week, col_month = st.columns(2)
+
+with col_week:
+    st.metric(
+        label="Agendamentos da semana",
+        value=weekly_count,
+    )
+
+with col_month:
+    st.metric(
+        label="Agendamentos do mês",
+        value=monthly_count,
+    )
 
 if st.session_state.scroll_to_slots:
     components.html(
