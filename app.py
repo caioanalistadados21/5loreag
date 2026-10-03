@@ -20,12 +20,11 @@ from config import (
     DAY_END,
     DAY_START,
     TIMEZONE,
-)
-
+    )
 from google_calendar import (
     GoogleCalendarService,
     is_google_configured,
-)
+    )
 
 try:
     from google_calendar import get_google_diagnostics
@@ -40,7 +39,7 @@ from scheduling import (
     generate_timeline_marks,
     list_available_start_times,
     slot_from_start,
-)
+    )
 st.set_page_config(
     page_title=APP_NAME,
     page_icon="📅",
