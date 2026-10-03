@@ -965,37 +965,37 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.markdown("### Configurações")
-    if google_ready:
-        use_google = st.toggle("Sincronizar com Google Calendar", value=True)
-        st.success("Google Calendar configurado")
+    #st.markdown("### Configurações")
+    #if google_ready:
+    #    use_google = st.toggle("Sincronizar com Google Calendar", value=True)
+    #    st.success("Google Calendar configurado")
 
-        if st.button("1. Testar leitura do Google", use_container_width=True):
-            try:
-                info = google_service().test_connection()
-                st.success(
-                    f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
-                )
-                if info.get("service_account_email"):
-                    st.caption(f"Service Account: {info['service_account_email']}")
-            except Exception as exc:
-                st.error(f"Falha na leitura do Google Calendar: {exc}")
+     #   if st.button("1. Testar leitura do Google", use_container_width=True):
+     #       try:
+     #           info = google_service().test_connection()
+     #           st.success(
+     #               f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
+     #           )
+     #           if info.get("service_account_email"):
+     #               st.caption(f"Service Account: {info['service_account_email']}")
+     #       except Exception as exc:
+     #           st.error(f"Falha na leitura do Google Calendar: {exc}")
 
-        if st.button("2. Testar gravação no Google", use_container_width=True):
-            try:
-                info = google_service().test_write_access()
-                st.success("Gravação OK. Evento temporário criado e removido com sucesso.")
-                if info.get("service_account_email"):
-                    st.caption(f"Service Account: {info['service_account_email']}")
-            except Exception as exc:
-                st.error(f"Falha na gravação do Google Calendar: {exc}")
-    else:
-        use_google = False
-        st.warning("Google Calendar ainda não está configurado")
-        for diagnostic in get_google_diagnostics():
-            st.caption(f"• {diagnostic}")
-        st.caption("Veja o README e .streamlit/secrets.example.toml.")
-    st.caption("Fuso horário: America/Sao_Paulo")
+     #   if st.button("2. Testar gravação no Google", use_container_width=True):
+     #       try:
+     #           info = google_service().test_write_access()
+     #           st.success("Gravação OK. Evento temporário criado e removido com sucesso.")
+     #           if info.get("service_account_email"):
+     #               st.caption(f"Service Account: {info['service_account_email']}")
+     #       except Exception as exc:
+     #           st.error(f"Falha na gravação do Google Calendar: {exc}")
+    #else:
+    #    use_google = False
+    #    st.warning("Google Calendar ainda não está configurado")
+    #    for diagnostic in get_google_diagnostics():
+    #        st.caption(f"• {diagnostic}")
+    #    st.caption("Veja o README e .streamlit/secrets.example.toml.")
+    #st.caption("Fuso horário: America/Sao_Paulo")
 
 if st.session_state.flash:
     st.success(st.session_state.flash)
