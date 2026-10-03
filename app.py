@@ -933,7 +933,10 @@ with st.sidebar:
     logged_name = st.session_state.get("logged_name", "")
     if logged_name:
         st.caption(f"Conectado como: {logged_name}")
-    if st.button("Sair", key="logout_button", use_container_width=True):
+    if st.button("🚪 Sair", key="logout_button", use_container_width=True):
+        cookie_manager.delete(
+            COOKIE_NAME
+        )
         st.session_state.authenticated = False
         st.session_state.logged_user = None
         st.session_state.logged_name = None
