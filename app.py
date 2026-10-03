@@ -331,10 +331,16 @@ def render_event_card(busy: dict) -> None:
 def render_busy_actions(busy: dict, key_prefix: str, google_ready: bool) -> None:
     appointment_id = busy.get("id") if busy.get("is_local_record") else None
 
+    if "delete_confirm" not in st.session_state:
+        st.session_state.delete_confirm = None
+
     # ---------------------------------------------------------
     # AGENDAMENTO CRIADO PELO APLICATIVO
     # ---------------------------------------------------------
     if appointment_id and str(appointment_id).isdigit():
+
+        confirm_key = f"local_{appointment_id}"
+
         with st.expander("Ver detalhes / excluir"):
             st.write(f"**Cliente:** {busy.get('client_name', '-')}")
             st.write(
@@ -348,29 +354,67 @@ def render_busy_actions(busy: dict, key_prefix: str, google_ready: bool) -> None
             if busy.get("notes"):
                 st.write(f"**Observações:** {busy['notes']}")
 
-            if st.button(
-                "Excluir horário",
-                key=f"cancel_{key_prefix}_{appointment_id}",
-                use_container_width=True,
-            ):
-                try:
-                    # Exclui primeiro do Google Calendar
-                    if busy.get("google_event_id") and google_ready:
-                        google_service().delete_event(
-                            busy["google_event_id"]
-                        )
+            # Primeiro clique
+            if st.session_state.delete_confirm != confirm_key:
 
-                    # Depois exclui do banco local
-                    db.delete_appointment(int(appointment_id))
-
-                    st.session_state.flash = "Horário excluído com sucesso."
-                    st.session_state.booking_slot = None
+                if st.button(
+                    "Excluir horário",
+                    key=f"delete_{key_prefix}_{appointment_id}",
+                    use_container_width=True,
+                ):
+                    st.session_state.delete_confirm = confirm_key
                     st.rerun()
 
-                except Exception as exc:
-                    st.error(
-                        f"Não foi possível excluir o horário: {exc}"
-                    )
+            # Confirmação
+            else:
+                st.warning(
+                    "Tem certeza que deseja excluir este horário?"
+                )
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if st.button(
+                        "Sim, excluir",
+                        key=f"confirm_delete_{key_prefix}_{appointment_id}",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        try:
+
+                            # Exclui do Google Calendar
+                            if busy.get("google_event_id") and google_ready:
+                                google_service().delete_event(
+                                    busy["google_event_id"]
+                                )
+
+                            # Exclui do banco local
+                            db.delete_appointment(
+                                int(appointment_id)
+                            )
+
+                            st.session_state.delete_confirm = None
+                            st.session_state.booking_slot = None
+
+                            st.session_state.flash = (
+                                "Horário excluído com sucesso."
+                            )
+
+                            st.rerun()
+
+                        except Exception as exc:
+                            st.error(
+                                f"Não foi possível excluir o horário: {exc}"
+                            )
+
+                with col2:
+                    if st.button(
+                        "Cancelar",
+                        key=f"cancel_delete_{key_prefix}_{appointment_id}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.delete_confirm = None
+                        st.rerun()
 
     # ---------------------------------------------------------
     # EVENTO QUE EXISTE SOMENTE NO GOOGLE CALENDAR
@@ -379,7 +423,10 @@ def render_busy_actions(busy: dict, key_prefix: str, google_ready: bool) -> None
 
         google_event_id = busy.get("id")
 
+        confirm_key = f"google_{google_event_id}"
+
         with st.expander("Ver detalhes / excluir"):
+
             st.write(
                 f"**Evento:** "
                 f"{busy.get('title') or 'Compromisso'}"
@@ -392,29 +439,62 @@ def render_busy_actions(busy: dict, key_prefix: str, google_ready: bool) -> None
 
             if google_event_id and google_ready:
 
-                if st.button(
-                    "Excluir horário",
-                    key=f"delete_google_{key_prefix}_{google_event_id}",
-                    use_container_width=True,
-                ):
-                    try:
-                        google_service().delete_event(
-                            google_event_id
-                        )
+                # Primeiro clique
+                if st.session_state.delete_confirm != confirm_key:
 
-                        st.session_state.flash = (
-                            "Horário excluído do Google Calendar."
-                        )
-
-                        st.session_state.booking_slot = None
-
+                    if st.button(
+                        "Excluir horário",
+                        key=f"delete_google_{key_prefix}_{google_event_id}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.delete_confirm = confirm_key
                         st.rerun()
 
-                    except Exception as exc:
-                        st.error(
-                            f"Não foi possível excluir o horário "
-                            f"do Google Calendar: {exc}"
-                        )
+                # Confirmação
+                else:
+
+                    st.warning(
+                        "Tem certeza que deseja excluir este horário "
+                        "do Google Calendar?"
+                    )
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        if st.button(
+                            "Sim, excluir",
+                            key=f"confirm_google_{key_prefix}_{google_event_id}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            try:
+
+                                google_service().delete_event(
+                                    google_event_id
+                                )
+
+                                st.session_state.delete_confirm = None
+                                st.session_state.booking_slot = None
+
+                                st.session_state.flash = (
+                                    "Horário excluído com sucesso."
+                                )
+
+                                st.rerun()
+
+                            except Exception as exc:
+                                st.error(
+                                    f"Não foi possível excluir o horário: {exc}"
+                                )
+
+                    with col2:
+                        if st.button(
+                            "Cancelar",
+                            key=f"cancel_google_{key_prefix}_{google_event_id}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.delete_confirm = None
+                            st.rerun()
 
             else:
                 st.warning(
