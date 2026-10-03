@@ -966,20 +966,22 @@ with st.sidebar:
 
     st.divider()
     #st.markdown("### Configurações")
-    #if google_ready:
-    #    use_google = st.toggle("Sincronizar com Banco", value=True)
-    #    st.success("Banco configurado")
+    if google_ready:
+        use_google = st.toggle("Sincronizar com Banco", value=True)
+        st.success("Banco configurado")
 
-     #   if st.button("1. Testar leitura do Google", use_container_width=True):
-     #       try:
-     #           info = google_service().test_connection()
-     #           st.success(
-     #               f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
-     #           )
-     #           if info.get("service_account_email"):
-     #               st.caption(f"Service Account: {info['service_account_email']}")
-     #       except Exception as exc:
-     #           st.error(f"Falha na leitura do Google Calendar: {exc}")
+        if st.button("1. Testar leitura do Banco", use_container_width=True):
+            try:
+                info = google_service().test_connection()
+                st.success(
+                    f"Leitura OK · Banco"
+                    #f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
+                )
+                if info.get("service_account_email"):
+                    pass
+                    #st.caption(f"Service Account: {info['service_account_email']}")
+            except Exception as exc:
+                st.error(f"Falha na leitura do Google Calendar: {exc}")
 
      #   if st.button("2. Testar gravação no Google", use_container_width=True):
      #       try:
