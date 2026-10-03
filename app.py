@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time as time_module
-
+from pathlib import Path
 from datetime import date, datetime, time, timedelta
 from html import escape
 from textwrap import dedent
@@ -22,13 +22,11 @@ from config import (
     TIMEZONE,
 )
 
-from google_calendar import GoogleCalendarService, is_google_configured
-
-try:
-    from google_calendar import get_google_diagnostics
-except ImportError:
-    def get_google_diagnostics():
-        return ["Verifique a configuração do Google Calendar no secrets."]
+from google_calendar import (
+    GoogleCalendarService,
+    get_google_diagnostics,
+    is_google_configured,
+)
 
 from scheduling import (
     find_overlap,
