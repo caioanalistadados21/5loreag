@@ -1,0 +1,13 @@
+services:
+  agenda:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - agenda_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  agenda_data:
