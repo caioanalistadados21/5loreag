@@ -2,3 +2,4 @@ streamlit>=1.44,<2.0
 google-api-python-client>=2.160,<3.0
 google-auth>=2.38,<3.0
 google-auth-httplib2>=0.2,<1.0
+extra-streamlit-components
