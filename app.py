@@ -330,27 +330,97 @@ def render_event_card(busy: dict) -> None:
 
 def render_busy_actions(busy: dict, key_prefix: str, google_ready: bool) -> None:
     appointment_id = busy.get("id") if busy.get("is_local_record") else None
+
+    # ---------------------------------------------------------
+    # AGENDAMENTO CRIADO PELO APLICATIVO
+    # ---------------------------------------------------------
     if appointment_id and str(appointment_id).isdigit():
-        with st.expander("Ver detalhes / cancelar"):
+        with st.expander("Ver detalhes / excluir"):
             st.write(f"**Cliente:** {busy.get('client_name', '-')}")
-            st.write(f"**Horário:** {busy['start']:%H:%M} – {busy['end']:%H:%M}")
+            st.write(
+                f"**Horário:** "
+                f"{busy['start']:%H:%M} – {busy['end']:%H:%M}"
+            )
+
             if busy.get("phone"):
                 st.write(f"**Telefone:** {busy['phone']}")
+
             if busy.get("notes"):
                 st.write(f"**Observações:** {busy['notes']}")
-            if st.button("Cancelar atendimento", key=f"cancel_{key_prefix}_{appointment_id}", use_container_width=True):
+
+            if st.button(
+                "Excluir horário",
+                key=f"cancel_{key_prefix}_{appointment_id}",
+                use_container_width=True,
+            ):
                 try:
+                    # Exclui primeiro do Google Calendar
                     if busy.get("google_event_id") and google_ready:
-                        google_service().delete_event(busy["google_event_id"])
+                        google_service().delete_event(
+                            busy["google_event_id"]
+                        )
+
+                    # Depois exclui do banco local
                     db.delete_appointment(int(appointment_id))
-                    st.session_state.flash = "Atendimento cancelado."
+
+                    st.session_state.flash = "Horário excluído com sucesso."
                     st.session_state.booking_slot = None
                     st.rerun()
-                except Exception as exc:
-                    st.error(f"Não foi possível cancelar: {exc}")
-    elif busy.get("source") == "google":
-        st.caption("Este horário está bloqueado por um compromisso existente no Google Calendar.")
 
+                except Exception as exc:
+                    st.error(
+                        f"Não foi possível excluir o horário: {exc}"
+                    )
+
+    # ---------------------------------------------------------
+    # EVENTO QUE EXISTE SOMENTE NO GOOGLE CALENDAR
+    # ---------------------------------------------------------
+    elif busy.get("source") == "google":
+
+        google_event_id = busy.get("id")
+
+        with st.expander("Ver detalhes / excluir"):
+            st.write(
+                f"**Evento:** "
+                f"{busy.get('title') or 'Compromisso'}"
+            )
+
+            st.write(
+                f"**Horário:** "
+                f"{busy['start']:%H:%M} – {busy['end']:%H:%M}"
+            )
+
+            if google_event_id and google_ready:
+
+                if st.button(
+                    "Excluir horário",
+                    key=f"delete_google_{key_prefix}_{google_event_id}",
+                    use_container_width=True,
+                ):
+                    try:
+                        google_service().delete_event(
+                            google_event_id
+                        )
+
+                        st.session_state.flash = (
+                            "Horário excluído do Google Calendar."
+                        )
+
+                        st.session_state.booking_slot = None
+
+                        st.rerun()
+
+                    except Exception as exc:
+                        st.error(
+                            f"Não foi possível excluir o horário "
+                            f"do Google Calendar: {exc}"
+                        )
+
+            else:
+                st.warning(
+                    "Não foi possível identificar o evento "
+                    "no Google Calendar."
+                )
 
 def render_booking_form(start: datetime, end: datetime, use_google: bool) -> None:
     st.markdown(f"#### Novo atendimento · {format_range(start, end)}")
