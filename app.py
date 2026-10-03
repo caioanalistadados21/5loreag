@@ -566,28 +566,40 @@ def get_google_counters(day: date) -> tuple[int, int]:
         return 0, 0
 
     try:
-        week_start, week_end = week_bounds(day)
+        # ----------------------------
+        # MÊS
+        # ----------------------------
+
         month_start, month_end = month_bounds(day)
 
-        weekly_events = google_service().list_events(
-            week_start,
-            week_end,
-        )
-
-        monthly_events = google_service().list_events(
+        events = google_service().list_events(
             month_start,
             month_end,
         )
 
-        return (
-            len(weekly_events),
-            len(monthly_events),
+        monthly_count = len(events)
+
+        # ----------------------------
+        # SEMANA
+        # ----------------------------
+
+        week_start, week_end = week_bounds(day)
+
+        weekly_count = sum(
+            1
+            for event in events
+            if week_start <= event["start"] < week_end
         )
 
+        return weekly_count, monthly_count
+
     except Exception as exc:
+
         st.warning(
-            f"Não foi possível calcular os contadores: {exc}"
+            "Não foi possível atualizar os contadores "
+            "do Google Calendar agora."
         )
+
         return 0, 0
 
 
