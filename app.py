@@ -31,7 +31,70 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+cookie_manager = stx.CookieManager(
+    key="agenda_cookie_manager"
+)
 
+COOKIE_NAME = "agenda_login"
+COOKIE_DAYS = 30
+
+
+def create_login_token(username: str) -> str:
+    secret = str(st.secrets["auth"]["cookie_secret"])
+
+    expires = int(
+        time.time() + (COOKIE_DAYS * 24 * 60 * 60)
+    )
+
+    payload = f"{username}|{expires}"
+
+    signature = hmac.new(
+        secret.encode(),
+        payload.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    return f"{username}|{expires}|{signature}"
+
+
+def validate_login_token(token: str):
+    try:
+        username, expires, signature = token.split("|")
+
+        expires = int(expires)
+
+        # Cookie expirado
+        if time.time() > expires:
+            return None
+
+        secret = str(
+            st.secrets["auth"]["cookie_secret"]
+        )
+
+        payload = f"{username}|{expires}"
+
+        expected_signature = hmac.new(
+            secret.encode(),
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+
+        if not hmac.compare_digest(
+            signature,
+            expected_signature,
+        ):
+            return None
+
+        # Confirma que usuário ainda existe
+        users = st.secrets["auth"]["users"]
+
+        if username not in users:
+            return None
+
+        return username
+
+    except Exception:
+        return None
 def _normalize_auth_users(raw_users) -> dict[str, dict]:
     users: dict[str, dict] = {}
     try:
@@ -85,85 +148,168 @@ def _load_auth_users() -> dict[str, dict]:
 
 
 def login_required() -> None:
+    
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
+
+    # --------------------------------------------
+    # JÁ ESTÁ LOGADO NA SESSÃO
+    # --------------------------------------------
 
     if st.session_state.authenticated:
         return
 
+    # --------------------------------------------
+    # PROCURA COOKIE
+    # --------------------------------------------
+
+    cookies = cookie_manager.get_all()
+
+    if cookies:
+
+        saved_token = cookies.get(COOKIE_NAME)
+
+        if saved_token:
+
+            username = validate_login_token(
+                saved_token
+            )
+
+            if username:
+
+                user_data = (
+                    st.secrets["auth"]["users"][username]
+                )
+
+                st.session_state.authenticated = True
+                st.session_state.logged_user = username
+                st.session_state.logged_name = str(
+                    user_data.get(
+                        "name",
+                        username,
+                    )
+                )
+
+                return
+
+    # --------------------------------------------
+    # TELA DE LOGIN
+    # --------------------------------------------
+
     st.markdown(
         """
-        <style>
-        .block-container {
-            max-width: 460px;
-            padding-top: 10vh;
-        }
-        #MainMenu, footer { visibility: hidden; }
-        header[data-testid="stHeader"] { background: transparent; }
-        .login-title {
-            text-align: center;
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: #172033;
-            margin-bottom: .25rem;
-        }
-        .login-subtitle {
-            text-align: center;
-            color: #667085;
-            margin-bottom: 1.25rem;
-        }
-        div[data-testid="stForm"] {
-            background: #FFFFFF;
-            border: 1px solid #E4E7EC;
-            border-radius: 18px;
-            padding: 18px;
-            box-shadow: 0 8px 28px rgba(16, 24, 40, .08);
-        }
-        div[data-testid="stFormSubmitButton"] > button {
-            width: 100%;
-            border-radius: 12px;
-            min-height: 44px;
-            font-weight: 720;
-        }
-        </style>
-        <div class="login-title">🔐 Agenda</div>
-        <div class="login-subtitle">Entre com seu usuário e senha para continuar.</div>
+        <div style="
+            max-width:420px;
+            margin:60px auto 25px auto;
+            text-align:center;
+        ">
+            <h2>🔐 Agenda</h2>
+            <p style="color:#667085;">
+                Informe seu usuário e senha
+            </p>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
-    users = _load_auth_users()
-    if not users:
-        st.error(
-            "Login não configurado. Adicione os usuários na seção "
-            "[auth.users] do secrets.toml ou nos Secrets do Streamlit Cloud."
-        )
-        st.stop()
+    with st.form("login_form"):
 
-    with st.form("login_form", clear_on_submit=False):
-        username = st.text_input("Usuário", placeholder="Digite seu usuário")
-        password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
-        submitted = st.form_submit_button("Entrar", type="primary", use_container_width=True)
-
-    if submitted:
-        user_key = username.strip().lower()
-        user_data = users.get(user_key)
-        expected_password = str(user_data.get("password", "")) if user_data else ""
-
-        password_ok = bool(user_data) and bool(expected_password) and hmac.compare_digest(
-            password, expected_password
+        username = st.text_input(
+            "Usuário",
+            placeholder="Digite seu usuário",
         )
 
-        if password_ok:
+        password = st.text_input(
+            "Senha",
+            type="password",
+            placeholder="Digite sua senha",
+        )
+
+        remember = st.checkbox(
+            "Lembrar de mim por 30 dias",
+            value=True,
+        )
+
+        entrar = st.form_submit_button(
+            "Entrar",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if entrar:
+
+        username = username.strip().lower()
+
+        try:
+
+            users = st.secrets["auth"]["users"]
+
+            if username not in users:
+                st.error(
+                    "Usuário ou senha inválidos."
+                )
+                st.stop()
+
+            user_data = users[username]
+
+            senha_correta = str(
+                user_data["password"]
+            )
+
+            if not hmac.compare_digest(
+                password,
+                senha_correta,
+            ):
+                st.error(
+                    "Usuário ou senha inválidos."
+                )
+                st.stop()
+
+            # LOGIN OK
+
             st.session_state.authenticated = True
-            st.session_state.logged_user = user_key
-            st.session_state.logged_name = str(user_data.get("name") or user_key)
+            st.session_state.logged_user = username
+            st.session_state.logged_name = str(
+                user_data.get(
+                    "name",
+                    username,
+                )
+            )
+
+            # ----------------------------------
+            # LEMBRAR LOGIN
+            # ----------------------------------
+
+            if remember:
+
+                token = create_login_token(
+                    username
+                )
+
+                cookie_manager.set(
+                    COOKIE_NAME,
+                    token,
+                    expires_at=(
+                        __import__(
+                            "datetime"
+                        ).datetime.now()
+                        + __import__(
+                            "datetime"
+                        ).timedelta(
+                            days=COOKIE_DAYS
+                        )
+                    ),
+                )
+
             st.rerun()
-        else:
-            st.error("Usuário ou senha inválidos.")
+
+        except Exception as exc:
+
+            st.error(
+                f"Erro no login: {exc}"
+            )
 
     st.stop()
-
 
 login_required()
 
