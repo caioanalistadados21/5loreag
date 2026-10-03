@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import hmac
 import hashlib
-import time
+import time as time_module
 from pathlib import Path
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from html import escape
 from textwrap import dedent
 
@@ -46,7 +46,7 @@ def create_login_token(username: str) -> str:
     secret = str(st.secrets["auth"]["cookie_secret"])
 
     expires = int(
-        time.time() + (COOKIE_DAYS * 24 * 60 * 60)
+        time_module.time() + (COOKIE_DAYS * 24 * 60 * 60)
     )
 
     payload = f"{username}|{expires}"
@@ -67,7 +67,7 @@ def validate_login_token(token: str):
         expires = int(expires)
 
         # Cookie expirado
-        if time.time() > expires:
+        if time_module.time() > expires:
             return None
 
         secret = str(
