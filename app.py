@@ -965,11 +965,10 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    use_google = True
-    #st.markdown("### Configurações")
-    #if google_ready:
-    #    use_google = st.toggle("Sincronizar com Google Calendar", value=True)
-    #    st.success("Google Calendar configurado")
+    st.markdown("### Configurações")
+    if google_ready:
+        use_google = st.toggle("Sincronizar com Banco", value=True)
+        st.success("Banco configurado")
 
      #   if st.button("1. Testar leitura do Google", use_container_width=True):
      #       try:
@@ -990,13 +989,13 @@ with st.sidebar:
      #               st.caption(f"Service Account: {info['service_account_email']}")
      #       except Exception as exc:
      #           st.error(f"Falha na gravação do Google Calendar: {exc}")
-    #else:
-    #    use_google = False
-    #    st.warning("Google Calendar ainda não está configurado")
-    #    for diagnostic in get_google_diagnostics():
-    #        st.caption(f"• {diagnostic}")
-    #    st.caption("Veja o README e .streamlit/secrets.example.toml.")
-    #st.caption("Fuso horário: America/Sao_Paulo")
+    else:
+        use_google = False
+        st.warning("Google Calendar ainda não está configurado")
+        for diagnostic in get_google_diagnostics():
+            st.caption(f"• {diagnostic}")
+        st.caption("Veja o README e .streamlit/secrets.example.toml.")
+    st.caption("Fuso horário: America/Sao_Paulo")
 
 if st.session_state.flash:
     st.success(st.session_state.flash)
