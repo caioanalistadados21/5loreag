@@ -439,8 +439,8 @@ class GoogleCalendarService:
             "start": {"dateTime": start.isoformat(), "timeZone": TIMEZONE_NAME},
             "end": {"dateTime": end.isoformat(), "timeZone": TIMEZONE_NAME},
         }
-        return self._execute(
-            self.service.events().insert(calendarId=self.calendar_id, body=body)
+       return (
+            self.service.events().insert(calendarId=self.calendar_id,body=body,).execute(num_retries=5)
         )
 
     def delete_event(self, event_id: str) -> None:
@@ -448,7 +448,7 @@ class GoogleCalendarService:
             self.service.events().delete(
                 calendarId=self.calendar_id,
                 eventId=event_id,
-            ).execute()
+            ).execute(num_retries=5)
         except Exception as exc:
             status = getattr(getattr(exc, "resp", None), "status", None)
             # Delete is idempotent for the app: if the user already removed the event
