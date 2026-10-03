@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hmac
+from pathlib import Path
+
 from datetime import date, datetime, time, timedelta
 from html import escape
 from textwrap import dedent
@@ -27,6 +30,142 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed",
 )
+
+
+def _normalize_auth_users(raw_users) -> dict[str, dict]:
+    users: dict[str, dict] = {}
+    try:
+        items = raw_users.items()
+    except AttributeError:
+        return users
+
+    for username, raw_data in items:
+        try:
+            user_data = dict(raw_data)
+        except Exception:
+            continue
+        key = str(username).strip().lower()
+        if key:
+            users[key] = user_data
+    return users
+
+
+def _load_auth_users() -> dict[str, dict]:
+    # 1) Forma padrão do Streamlit / Streamlit Cloud.
+    try:
+        auth = st.secrets.get("auth", {})
+        users = _normalize_auth_users(auth.get("users", {}))
+        if users:
+            return users
+    except Exception:
+        pass
+
+    # 2) Mantém compatibilidade local com o projeto atual, que também aceita
+    #    secrets.toml na raiz além de .streamlit/secrets.toml.
+    try:
+        import tomllib
+    except ImportError:
+        return {}
+
+    root = Path(__file__).resolve().parent
+    for candidate in (root / ".streamlit" / "secrets.toml", root / "secrets.toml"):
+        if not candidate.exists():
+            continue
+        try:
+            with candidate.open("rb") as handle:
+                data = tomllib.load(handle)
+            auth = data.get("auth", {})
+            users = _normalize_auth_users(auth.get("users", {}))
+            if users:
+                return users
+        except Exception:
+            continue
+
+    return {}
+
+
+def login_required() -> None:
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if st.session_state.authenticated:
+        return
+
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            max-width: 460px;
+            padding-top: 10vh;
+        }
+        #MainMenu, footer { visibility: hidden; }
+        header[data-testid="stHeader"] { background: transparent; }
+        .login-title {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #172033;
+            margin-bottom: .25rem;
+        }
+        .login-subtitle {
+            text-align: center;
+            color: #667085;
+            margin-bottom: 1.25rem;
+        }
+        div[data-testid="stForm"] {
+            background: #FFFFFF;
+            border: 1px solid #E4E7EC;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 8px 28px rgba(16, 24, 40, .08);
+        }
+        div[data-testid="stFormSubmitButton"] > button {
+            width: 100%;
+            border-radius: 12px;
+            min-height: 44px;
+            font-weight: 720;
+        }
+        </style>
+        <div class="login-title">🔐 Agenda</div>
+        <div class="login-subtitle">Entre com seu usuário e senha para continuar.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    users = _load_auth_users()
+    if not users:
+        st.error(
+            "Login não configurado. Adicione os usuários na seção "
+            "[auth.users] do secrets.toml ou nos Secrets do Streamlit Cloud."
+        )
+        st.stop()
+
+    with st.form("login_form", clear_on_submit=False):
+        username = st.text_input("Usuário", placeholder="Digite seu usuário")
+        password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
+        submitted = st.form_submit_button("Entrar", type="primary", use_container_width=True)
+
+    if submitted:
+        user_key = username.strip().lower()
+        user_data = users.get(user_key)
+        expected_password = str(user_data.get("password", "")) if user_data else ""
+
+        password_ok = bool(user_data) and bool(expected_password) and hmac.compare_digest(
+            password, expected_password
+        )
+
+        if password_ok:
+            st.session_state.authenticated = True
+            st.session_state.logged_user = user_key
+            st.session_state.logged_name = str(user_data.get("name") or user_key)
+            st.rerun()
+        else:
+            st.error("Usuário ou senha inválidos.")
+
+    st.stop()
+
+
+login_required()
 
 db.init_db()
 
@@ -645,6 +784,16 @@ inject_css()
 
 google_ready = is_google_configured()
 with st.sidebar:
+    logged_name = st.session_state.get("logged_name", "")
+    if logged_name:
+        st.caption(f"Conectado como: {logged_name}")
+    if st.button("Sair", key="logout_button", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.logged_user = None
+        st.session_state.logged_name = None
+        st.rerun()
+
+    st.divider()
     st.markdown("### Configurações")
     if google_ready:
         use_google = st.toggle("Sincronizar com Google Calendar", value=True)
@@ -714,13 +863,13 @@ weekly_count, monthly_count = get_google_counters(selected)
 col_week, col_month = st.columns(2)
 
 with st.expander("Total Agendamentos", expanded=False):
-    #with col_week:
+    with col_week:
         st.metric(
             label="Agendamentos da semana",
             value=weekly_count,
         )
 
-    #with col_month:
+    with col_month:
         st.metric(
             label="Agendamentos do mês",
             value=monthly_count,
