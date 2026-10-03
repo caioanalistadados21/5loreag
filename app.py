@@ -965,6 +965,7 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
+    use_google = True
     #st.markdown("### Configurações")
     #if google_ready:
     #    use_google = st.toggle("Sincronizar com Google Calendar", value=True)
