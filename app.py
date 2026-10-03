@@ -600,7 +600,7 @@ def get_google_counters(day: date) -> tuple[int, int]:
         "Tente novamente em alguns segundos."
        )
 
-        return 0, 0
+       return 0, 0
 
 
 @st.cache_resource(show_spinner=False)
