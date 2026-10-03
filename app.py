@@ -36,7 +36,7 @@ cookie_manager = stx.CookieManager(
 )
 
 COOKIE_NAME = "agenda_login"
-COOKIE_DAYS = 30
+COOKIE_DAYS = 120
 
 
 def create_login_token(username: str) -> str:
