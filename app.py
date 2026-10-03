@@ -595,10 +595,10 @@ def get_google_counters(day: date) -> tuple[int, int]:
 
     except Exception as exc:
 
-        st.warning(
-            "Não foi possível atualizar os contadores "
-            "do Google Calendar agora."
-        )
+       st.warning(
+        "Não foi possível atualizar os contadores agora. "
+        "Tente novamente em alguns segundos."
+       )
 
         return 0, 0
 
