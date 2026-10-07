@@ -15,18 +15,18 @@ import extra_streamlit_components as stx
 import database as db
 
 from config import (
-    APP_NAME,
-    COLORS,
-    DAY_END,
-    DAY_START,
-    TIMEZONE,
-)
+        APP_NAME,
+        COLORS,
+        DAY_END,
+        DAY_START,
+        TIMEZONE,
+    )
 
 from google_calendar import (
-    GoogleCalendarService,
-    get_google_diagnostics,
-    is_google_configured,
-)
+        GoogleCalendarService,
+        get_google_diagnostics,
+        is_google_configured,
+    )
 
 from scheduling import (
     find_overlap,
@@ -47,19 +47,32 @@ cookie_manager = stx.CookieManager(
 
 COOKIE_NAME = "agenda_login"
 COOKIE_DAYS = 120
+COOKIE_MAX_AGE = COOKIE_DAYS * 24 * 60 * 60
 
 
-def create_login_token(username: str) -> str:
-    secret = str(st.secrets["auth"]["cookie_secret"])
+def _get_cookie_secret() -> str:
+    try:
+        secret = str(st.secrets["auth"]["cookie_secret"]).strip()
+    except Exception as exc:
+        raise RuntimeError(
+            "Configure auth.cookie_secret nos Secrets do Streamlit Cloud."
+        ) from exc
 
-    expires = int(
-        time_module.time() + (COOKIE_DAYS * 24 * 60 * 60)
-    )
+    if not secret:
+        raise RuntimeError(
+            "auth.cookie_secret nao pode ficar vazio nos Secrets do Streamlit Cloud."
+        )
 
+    return secret
+
+
+def create_login_token(username: str, expires: int | None = None) -> str:
+    if expires is None:
+        expires = int(time_module.time() + COOKIE_MAX_AGE)
     payload = f"{username}|{expires}"
 
     signature = hmac.new(
-        secret.encode(),
+        _get_cookie_secret().encode(),
         payload.encode(),
         hashlib.sha256,
     ).hexdigest()
@@ -69,42 +82,32 @@ def create_login_token(username: str) -> str:
 
 def validate_login_token(token: str):
     try:
-        username, expires, signature = token.split("|")
-
+        username, expires, signature = token.split("|", 2)
         expires = int(expires)
 
-        # Cookie expirado
         if time_module.time() > expires:
             return None
 
-        secret = str(
-            st.secrets["auth"]["cookie_secret"]
-        )
-
         payload = f"{username}|{expires}"
-
         expected_signature = hmac.new(
-            secret.encode(),
+            _get_cookie_secret().encode(),
             payload.encode(),
             hashlib.sha256,
         ).hexdigest()
 
-        if not hmac.compare_digest(
-            signature,
-            expected_signature,
-        ):
+        if not hmac.compare_digest(signature, expected_signature):
             return None
 
-        # Confirma que usuário ainda existe
-        users = st.secrets["auth"]["users"]
-
+        users = _load_auth_users()
         if username not in users:
             return None
 
-        return username
+        return username, expires120
 
     except Exception:
         return None
+
+
 def _normalize_auth_users(raw_users) -> dict[str, dict]:
     users: dict[str, dict] = {}
     try:
@@ -124,7 +127,7 @@ def _normalize_auth_users(raw_users) -> dict[str, dict]:
 
 
 def _load_auth_users() -> dict[str, dict]:
-    # 1) Forma padrão do Streamlit / Streamlit Cloud.
+    # 1) Forma padrao do Streamlit / Streamlit Cloud.
     try:
         auth = st.secrets.get("auth", {})
         users = _normalize_auth_users(auth.get("users", {}))
@@ -133,8 +136,7 @@ def _load_auth_users() -> dict[str, dict]:
     except Exception:
         pass
 
-    # 2) Mantém compatibilidade local com o projeto atual, que também aceita
-    #    secrets.toml na raiz além de .streamlit/secrets.toml.
+    # 2) Compatibilidade com execucao local.
     try:
         import tomllib
     except ImportError:
@@ -157,169 +159,170 @@ def _load_auth_users() -> dict[str, dict]:
     return {}
 
 
+def _read_persistent_login_cookie() -> str | None:
+    # st.context.cookies vem junto com a requisicao inicial da sessao e nao
+    # depende do retorno assincrono do componente CookieManager.
+    try:
+        cookies = st.context.cookies
+        if COOKIE_NAME in cookies:
+            value = cookies[COOKIE_NAME]
+            if value:
+                return str(value)
+    except Exception:
+        pass
+
+    # Fallback para versoes/ambientes em que st.context nao esteja disponivel.
+    try:
+        value = cookie_manager.get(COOKIE_NAME)
+        return str(value) if value else None
+    except Exception:
+        return None
+
+
+def _set_logged_user(
+    username: str,
+    user_data: dict,
+    expires_at: int | None = None,
+) -> None:
+    st.session_state.authenticated = True
+    st.session_state.logged_user = username
+    st.session_state.logged_name = str(user_data.get("name", username))
+    st.session_state.auth_expires_at = expires_at
+
+
 def login_required() -> None:
-    
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
-    # --------------------------------------------
-    # JÁ ESTÁ LOGADO NA SESSÃO
-    # --------------------------------------------
-
     if st.session_state.authenticated:
-        return
+        expires_at = st.session_state.get("auth_expires_at")
 
-    # --------------------------------------------
-    # PROCURA COOKIE
-    # --------------------------------------------
+        # Mesmo com a aba aberta por muito tempo, exige nova senha ao completar
+        # 120 dias quando existe uma autenticacao persistente com validade.
+        if expires_at is None or time_module.time() <= expires_at:
+            return
 
-    cookies = cookie_manager.get_all()
+        st.session_state.authenticated = False
+        st.session_state.logged_user = None
+        st.session_state.logged_name = None
+        st.session_state.auth_expires_at = None
 
-    if cookies:
+    # Depois de clicar em Sair, nao rele o cookie antigo desta mesma conexao.
+    # st.context.cookies representa os cookies recebidos no inicio da sessao.
+    skip_cookie = st.session_state.get("logout_in_progress", False)
 
-        saved_token = cookies.get(COOKIE_NAME)
+    if not skip_cookie:
+        saved_token = _read_persistent_login_cookie()
 
         if saved_token:
+            validated = validate_login_token(saved_token)
 
-            username = validate_login_token(
-                saved_token
+            if validated:
+                username, expires_at = validated
+                users = _load_auth_users()
+                user_data = users.get(username)
+
+                if user_data:
+                    _set_logged_user(username, user_data, expires_at)
+                    return
+
+    login_area = st.empty()
+
+    with login_area.container():
+        st.markdown(
+            """
+            <div style="
+                max-width:420px;
+                margin:60px auto 25px auto;
+                text-align:center;
+            ">
+                <h2>🔐 Agenda</h2>
+                <p style="color:#667085;">
+                    Informe seu usuario e senha
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        with st.form("login_form"):
+            username = st.text_input(
+                "Usuario",
+                placeholder="Digite seu usuario",
             )
 
-            if username:
+            password = st.text_input(
+                "Senha",
+                type="password",
+                placeholder="Digite sua senha",
+            )
 
-                user_data = (
-                    st.secrets["auth"]["users"][username]
-                )
+            remember = st.checkbox(
+                "Lembrar-me",
+                value=True,
+            )
 
-                st.session_state.authenticated = True
-                st.session_state.logged_user = username
-                st.session_state.logged_name = str(
-                    user_data.get(
-                        "name",
-                        username,
-                    )
-                )
-
-                return
-
-    # --------------------------------------------
-    # TELA DE LOGIN
-    # --------------------------------------------
-
-    st.markdown(
-        """
-        <div style="
-            max-width:420px;
-            margin:60px auto 25px auto;
-            text-align:center;
-        ">
-            <h2>🔐 Agenda</h2>
-            <p style="color:#667085;">
-                Informe seu usuário e senha
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    with st.form("login_form"):
-
-        username = st.text_input(
-            "Usuário",
-            placeholder="Digite seu usuário",
-        )
-
-        password = st.text_input(
-            "Senha",
-            type="password",
-            placeholder="Digite sua senha",
-        )
-
-        remember = st.checkbox(
-            "Lembrar-me",
-            value=True,
-        )
-
-        entrar = st.form_submit_button(
-            "Entrar",
-            type="primary",
-            use_container_width=True,
-        )
+            entrar = st.form_submit_button(
+                "Entrar",
+                type="primary",
+                use_container_width=True,
+            )
 
     if entrar:
-
         username = username.strip().lower()
 
         try:
-
-            users = st.secrets["auth"]["users"]
+            users = _load_auth_users()
 
             if username not in users:
-                st.error(
-                    "Usuário ou senha inválidos."
-                )
+                st.error("Usuario ou senha invalidos.")
                 st.stop()
 
             user_data = users[username]
+            senha_correta = str(user_data["password"])
 
-            senha_correta = str(
-                user_data["password"]
-            )
-
-            if not hmac.compare_digest(
-                password,
-                senha_correta,
-            ):
-                st.error(
-                    "Usuário ou senha inválidos."
-                )
+            if not hmac.compare_digest(password, senha_correta):
+                st.error("Usuario ou senha invalidos.")
                 st.stop()
 
-            # LOGIN OK
-
-            st.session_state.authenticated = True
-            st.session_state.logged_user = username
-            st.session_state.logged_name = str(
-                user_data.get(
-                    "name",
-                    username,
-                )
-            )
-
-            # ----------------------------------
-            # LEMBRAR LOGIN
-            # ----------------------------------
+            login_expires_at = int(time_module.time() + COOKIE_MAX_AGE)
+            _set_logged_user(username, user_data, login_expires_at)
+            st.session_state.logout_in_progress = False
 
             if remember:
+                token = create_login_token(username, login_expires_at)
 
-                token = create_login_token(
-                    username
-                )
-
+                # Nao chame st.rerun() imediatamente depois deste set.
+                # O componente precisa chegar ao navegador para gravar o cookie.
                 cookie_manager.set(
                     COOKIE_NAME,
                     token,
-                    expires_at=(
-                        __import__(
-                            "datetime"
-                        ).datetime.now()
-                        + __import__(
-                            "datetime"
-                        ).timedelta(
-                            days=COOKIE_DAYS
-                        )
-                    ),
+                    key=f"set_{COOKIE_NAME}",
+                    path="/",
+                    expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
+                    max_age=COOKIE_MAX_AGE,
+                    same_site="lax",
                 )
+            else:
+                # Se havia um cookie antigo e o usuario desmarcou Lembrar-me, remove-o.
+                try:
+                    cookie_manager.delete(
+                        COOKIE_NAME,
+                        key=f"delete_{COOKIE_NAME}_login",
+                    )
+                except Exception:
+                    pass
 
-            st.rerun()
+            # Remove a tela de login desta execucao e deixa a pagina continuar.
+            # O CookieManager fara o rerun necessario quando concluir no navegador.
+            login_area.empty()
+            return
 
         except Exception as exc:
-
-            st.error(
-                f"Erro no login: {exc}"
-            )
+            st.error(f"Erro no login: {exc}")
 
     st.stop()
+
 
 login_required()
 
@@ -956,49 +959,52 @@ with st.sidebar:
     if logged_name:
         st.caption(f"Conectado como: {logged_name}")
     if st.button("🚪 Sair", key="logout_button", use_container_width=True):
-        cookie_manager.delete(
-            COOKIE_NAME
-        )
+        st.session_state.logout_in_progress = True
         st.session_state.authenticated = False
         st.session_state.logged_user = None
         st.session_state.logged_name = None
-        st.rerun()
+        st.session_state.auth_expires_at = None
+
+        cookie_manager.delete(
+            COOKIE_NAME,
+            key=f"delete_{COOKIE_NAME}_logout",
+        )
+
+        # Nao use st.rerun() aqui: primeiro deixe o componente apagar o cookie
+        # no navegador. A resposta do componente provocara a proxima execucao.
+        st.stop()
 
     st.divider()
-    #st.markdown("### Configurações")
+    st.markdown("### Configurações")
     if google_ready:
-        use_google = st.toggle("Sincronizar com Banco", value=True)
-        st.success("Banco configurado")
+        use_google = st.toggle("Sincronizar com Google Calendar", value=True)
+        st.success("Google Calendar configurado")
 
-        if st.button("1. Testar leitura do Banco", use_container_width=True):
+        if st.button("1. Testar leitura do Google", use_container_width=True):
             try:
                 info = google_service().test_connection()
                 st.success(
-                    f"Leitura OK · Banco"
-                    #f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
+                    f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
                 )
                 if info.get("service_account_email"):
-                    pass
-                    #st.caption(f"Service Account: {info['service_account_email']}")
+                    st.caption(f"Service Account: {info['service_account_email']}")
             except Exception as exc:
-                #st.error(f"Falha na leitura do Google Calendar: {exc}")
-                st.error(f"Falha na leitura do Banco: {exc}")
+                st.error(f"Falha na leitura do Google Calendar: {exc}")
 
-        if st.button("2. Testar gravação no Banco", use_container_width=True):
+        if st.button("2. Testar gravação no Google", use_container_width=True):
             try:
                 info = google_service().test_write_access()
                 st.success("Gravação OK. Evento temporário criado e removido com sucesso.")
                 if info.get("service_account_email"):
-                    pass
-                    #st.caption(f"Service Account: {info['service_account_email']}")
+                    st.caption(f"Service Account: {info['service_account_email']}")
             except Exception as exc:
-                st.error(f"Falha na gravação do Banco: {exc}")
+                st.error(f"Falha na gravação do Google Calendar: {exc}")
     else:
         use_google = False
-        st.warning("Banco ainda não está configurado")
+        st.warning("Google Calendar ainda não está configurado")
         for diagnostic in get_google_diagnostics():
             st.caption(f"• {diagnostic}")
-    #    st.caption("Veja o README e .streamlit/secrets.example.toml.")
+        st.caption("Veja o README e .streamlit/secrets.example.toml.")
     st.caption("Fuso horário: America/Sao_Paulo")
 
 if st.session_state.flash:
