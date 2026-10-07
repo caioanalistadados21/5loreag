@@ -437,6 +437,7 @@ class GoogleCalendarService:
             "description": "\n".join(description_lines),
             "start": {"dateTime": start.isoformat(), "timeZone": TIMEZONE_NAME},
             "end": {"dateTime": end.isoformat(), "timeZone": TIMEZONE_NAME},
+            "reminders": {"useDefault": False},
         }
         return (
             self.service.events().insert(calendarId=self.calendar_id,body=body,).execute(num_retries=5)
