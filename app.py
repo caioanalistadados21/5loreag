@@ -988,7 +988,8 @@ with st.sidebar:
                     #f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
                 )
                 if info.get("service_account_email"):
-                   pass #st.caption(f"Service Account: {info['service_account_email']}")
+                   pass 
+                   #st.caption(f"Service Account: {info['service_account_email']}")
             except Exception as exc:
                 st.error(f"Falha na leitura do Banco.")
                 #st.error(f"Falha na leitura do Banco: {exc}")
@@ -998,7 +999,8 @@ with st.sidebar:
                 info = google_service().test_write_access()
                 st.success("Gravação OK. Evento temporário criado e removido com sucesso.")
                 if info.get("service_account_email"):
-                    pass #st.caption(f"Service Account: {info['service_account_email']}")
+                    pass 
+                    #st.caption(f"Service Account: {info['service_account_email']}")
             except Exception as exc:
                 st.error(f"Falha na gravação do Banco.")
                 #st.error(f"Falha na gravação do Google Calendar: {exc}")
@@ -1006,7 +1008,8 @@ with st.sidebar:
         use_google = False
         st.warning("Banco ainda não está configurado")
         for diagnostic in get_google_diagnostics():
-            pass#st.caption(f"• {diagnostic}")
+            pass
+            #st.caption(f"• {diagnostic}")
         #st.caption("Veja o README e .streamlit/secrets.example.toml.")
     st.caption("Fuso horário: America/Sao_Paulo")
 
