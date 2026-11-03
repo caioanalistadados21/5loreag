@@ -987,7 +987,7 @@ with st.sidebar:
                     f"Leitura OK · Agenda: {info.get('calendar_summary') or info['calendar_id']}"
                 )
                 if info.get("service_account_email"):
-                    #st.caption(f"Service Account: {info['service_account_email']}")
+                   pass #st.caption(f"Service Account: {info['service_account_email']}")
             except Exception as exc:
                 st.error(f"Falha na leitura do Google Calendar: {exc}")
 
