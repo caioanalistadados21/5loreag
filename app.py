@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+import faulthandler
+import sys
+
+faulthandler.enable(all_threads=True)
+
+def _diag(message: str) -> None:
+    print(f"[DIAG] {message}", flush=True)
+
+_diag(f"APP.PY INICIADO - Python {sys.version.split()[0]}")
+
 import hashlib
 import hmac
 import time as time_module
@@ -8,12 +18,21 @@ from datetime import date, datetime, time, timedelta
 from html import escape
 from textwrap import dedent
 
+_diag("Importando streamlit")
 import streamlit as st
+_diag(f"Streamlit OK - versao {st.__version__}")
+_diag("Importando streamlit.components.v1")
 import streamlit.components.v1 as components
+_diag("streamlit.components.v1 OK")
+_diag("Importando extra_streamlit_components")
 import extra_streamlit_components as stx
 
+_diag("extra_streamlit_components OK")
+_diag("Importando database")
 import database as db
 
+_diag("database OK")
+_diag("Importando config")
 from config import (
         APP_NAME,
         COLORS,
@@ -22,18 +41,24 @@ from config import (
         TIMEZONE,
     )
 
+_diag("config OK")
+_diag("Importando google_calendar")
 from google_calendar import (
         GoogleCalendarService,
         get_google_diagnostics,
         is_google_configured,
     )
 
+_diag("google_calendar OK")
+_diag("Importando scheduling")
 from scheduling import (
     find_overlap,
     generate_timeline_marks,
     list_available_start_times,
     slot_from_start,
 )
+_diag("scheduling OK")
+_diag("Executando st.set_page_config")
 st.set_page_config(
     page_title=APP_NAME,
     page_icon="📅",
@@ -41,10 +66,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+_diag("set_page_config OK")
+_diag("Inicializando CookieManager")
 cookie_manager = stx.CookieManager(
     key="agenda_cookie_manager"
 )
 
+_diag("CookieManager OK")
 COOKIE_NAME = "agenda_login"
 COOKIE_DAYS = 120
 COOKIE_MAX_AGE = COOKIE_DAYS * 24 * 60 * 60
@@ -102,7 +130,7 @@ def validate_login_token(token: str):
         if username not in users:
             return None
 
-        return username, expires120
+        return username, expires
 
     except Exception:
         return None
@@ -324,10 +352,14 @@ def login_required() -> None:
     st.stop()
 
 
+_diag("Executando login_required")
 login_required()
 
+_diag("login_required OK")
+_diag("Executando db.init_db")
 db.init_db()
 
+_diag("db.init_db OK")
 if "selected_date" not in st.session_state:
     st.session_state.selected_date = date.today()
 if "booking_slot" not in st.session_state:
@@ -940,6 +972,7 @@ def render_booking_form(start: datetime, end: datetime, use_google: bool) -> Non
             st.error(f"Não foi possível criar o agendamento: {exc}")
 
 
+_diag("Executando inject_css")
 inject_css()
 
 #st.markdown(
@@ -953,7 +986,10 @@ inject_css()
 #    unsafe_allow_html=True,
 #)
 
+_diag("inject_css OK")
+_diag("Verificando configuracao Google Calendar")
 google_ready = is_google_configured()
+_diag("Verificacao Google Calendar OK")
 with st.sidebar:
     logged_name = st.session_state.get("logged_name", "")
     if logged_name:
@@ -1045,8 +1081,10 @@ st.markdown('<div id="appointments-list"></div>', unsafe_allow_html=True)
 # CONTADORES GOOGLE CALENDAR
 # ---------------------------------------------------------
 
+_diag("Consultando contadores Google Calendar")
 weekly_count, monthly_count = get_google_counters(selected)
 
+_diag("Contadores Google Calendar OK")
 col_week, col_month = st.columns(2)
 
 with st.expander("Total Agendamentos", expanded=False):
@@ -1093,7 +1131,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+_diag("Consultando agendamentos")
 busy_items = sorted(get_busy_items(selected, use_google), key=lambda item: item["start"])
+_diag("Consulta agendamentos OK")
 available_starts = list_available_start_times(selected, busy_items)
 bookable_starts = {datetime.combine(selected, t, tzinfo=TIMEZONE) for t in available_starts}
 blocked_end_starts = {item["end"] for item in busy_items}
@@ -1147,3 +1187,4 @@ else:
 st.caption(
     "Agenda Mobile · Início do dia: 07:00 · Cada atendimento ocupa 1h30 para frente · Encerramento máximo: 20:30"
 )
+_diag("RENDERIZACAO CONCLUIDA")
